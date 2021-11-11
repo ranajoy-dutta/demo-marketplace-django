@@ -11,7 +11,8 @@ class AccountAdmin(UserAdmin):
         'username',
         'last_login',
         'date_joined',
-        'is_active'
+        'is_active',
+        'is_admin',
     )
 
     list_display_links = (
@@ -19,6 +20,10 @@ class AccountAdmin(UserAdmin):
         'first_name',
         'last_name'
         )
+
+    list_editable = (
+        'is_active',
+    )
 
     readonly_fields = (
         'last_login',
