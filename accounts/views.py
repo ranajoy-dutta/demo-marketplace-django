@@ -1,6 +1,8 @@
 from django.contrib import messages, auth
+from django.contrib.messages.api import error
+from django.http.response import HttpResponse
 from django.shortcuts import redirect, render
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 import accounts
 from accounts.models import Account
 from .forms import RegistrationForm
@@ -47,7 +49,7 @@ def register(request):
                 'token': default_token_generator.make_token(user),
             })
             to_email = email
-            send_email = EmailMessage(mail_subject, mail_message, to=[email])
+            send_email = EmailMessage(mail_subject, mail_message, to=[to_email])
             send_email.send()
 
             messages.success(request, 'We have sent a verification email on given email id.')
@@ -103,3 +105,63 @@ def activate(request, uidb64, token):
 @login_required(login_url='login')
 def dashboard(request):
     return render(request, 'accounts/dashboard.html')
+
+
+def forgotpassword(request):
+    if request.method == 'POST':
+        email = request.POST['email']
+        if Account.objects.filter(email=email).exists():
+            user = Account.objects.get(email__exact=email)
+            # USER PASSWORD RESET
+            current_site = get_current_site(request)
+            mail_subject = 'Reset your password'
+            mail_message = render_to_string('accounts/reset_password_email.html', {
+                'user': user,
+                'domain': current_site,
+                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+                'token': default_token_generator.make_token(user),
+            })
+            to_email = email
+            send_email = EmailMessage(mail_subject, mail_message, to=[to_email])
+            send_email.send()
+            messages.success(request, "Password reset email has been sent to your email address!")
+            return redirect('login')
+        else:
+            messages.error(request, "Account doesn't exist!")
+            return redirect('forgotpassword')
+    return render(request, 'accounts/forgotpassword.html')
+
+
+def resetpassword_validate(request, uidb64, token):
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = Account._default_manager.get(pk=uid)
+    except(TypeError, ValueError, OverflowError, Account.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        request.session['uid'] = uid
+        messages.success(request, "Please reset your password")
+        return redirect('resetPassword')
+    else:
+        messages.error(request, "Think link has expired!")
+        return redirect('login')
+
+
+def resetPassword(request):
+    if request.method == 'POST':
+        password = request.POST['password']
+        confirm_password = request.POST['confirm_password']
+
+        if password == confirm_password:
+            uid = request.session.get('uid')
+            user = Account.objects.get(pk=uid)
+            user.set_password(password)
+            user.save()
+            messages.success(request, "Reset Successful")
+            return redirect('login')
+        else:
+            messages.error(request, "Confirm Password dont match!")
+            return redirect('resetPassword')
+    else:
+        return render(request, 'accounts/resetPassword.html')
