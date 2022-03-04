@@ -1,9 +1,7 @@
 from django.contrib import messages, auth
 from django.contrib.messages.api import error
-from django.http.response import HttpResponse
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required, user_passes_test
-import accounts
 from accounts.models import Account
 from .forms import RegistrationForm
 import random
